@@ -1,0 +1,411 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  OPERATOR
+  VIEWER
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+}
+
+enum MachineType {
+  EXCAVATOR
+  BULLDOZER
+  LOADER
+  TRUCK
+  GRADER
+  ROLLER
+  OTHER
+}
+
+enum MachineStatus {
+  AVAILABLE
+  OPERATING
+  MAINTENANCE
+  INACTIVE
+}
+
+enum MaintenanceType {
+  PREVENTIVE
+  CORRECTIVE
+  PREDICTIVE
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum EmployeeRole {
+  OPERATOR
+  MECHANIC
+  ENGINEER
+  ADMIN_STAFF
+}
+
+enum FinancialType {
+  PAYABLE
+  RECEIVABLE
+}
+
+enum FinancialStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum FuelType {
+  DIESEL
+  GASOLINE
+}
+
+enum StockMovementType {
+  IN
+  OUT
+}
+
+enum RequisitionStatus {
+  PENDING
+  APPROVED
+  DELIVERED
+}
+
+model User {
+  id             String        @id @default(cuid())
+  name           String
+  email          String        @unique
+  password       String
+  role           UserRole      @default(VIEWER)
+  active         Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+  fuelings       Fueling[]
+
+  @@map("users")
+}
+
+model Company {
+  id        String     @id @default(cuid())
+  name      String
+  cnpj      String     @unique
+  address   String?
+  phone     String?
+  email     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  projects  Project[]
+  machines  Machine[]
+  employees Employee[]
+
+  @@map("companies")
+}
+
+model Project {
+  id             String              @id @default(cuid())
+  name           String
+  client         String
+  location       String
+  contractValue  Decimal             @default(0) @db.Decimal(15, 2)
+  startDate      DateTime
+  endDate        DateTime?
+  status         ProjectStatus       @default(PLANNING)
+  description    String?
+  companyId      String
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  company        Company             @relation(fields: [companyId], references: [id])
+  additives      ProjectAdditive[]
+  measurements   Measurement[]
+  dailyProductions DailyProduction[]
+  financialEntries FinancialEntry[]
+  stockMovements StockMovement[]
+  stockRequisitions StockRequisition[]
+
+  @@map("projects")
+}
+
+model ProjectAdditive {
+  id          String   @id @default(cuid())
+  projectId   String
+  description String
+  value       Decimal  @db.Decimal(15, 2)
+  date        DateTime
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id])
+
+  @@map("project_additives")
+}
+
+model Measurement {
+  id            String   @id @default(cuid())
+  projectId     String
+  period        String
+  value         Decimal  @db.Decimal(15, 2)
+  status        String   @default("PENDING")
+  invoiceNumber String?
+  createdAt     DateTime @default(now())
+  project       Project  @relation(fields: [projectId], references: [id])
+
+  @@map("measurements")
+}
+
+model Machine {
+  id             String            @id @default(cuid())
+  name           String
+  model          String
+  manufacturer   String
+  year           Int
+  patrimonyCode  String            @unique
+  type           MachineType
+  status         MachineStatus     @default(AVAILABLE)
+  hourMeter      Decimal           @default(0) @db.Decimal(10, 1)
+  odometer       Decimal?          @db.Decimal(10, 1)
+  companyId      String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  company        Company           @relation(fields: [companyId], references: [id])
+  documents      MachineDocument[]
+  dailyProductions DailyProduction[]
+  fuelings       Fueling[]
+  maintenanceOrders MaintenanceOrder[]
+  maintenancePlans  MaintenancePlan[]
+
+  @@map("machines")
+}
+
+model MachineDocument {
+  id         String    @id @default(cuid())
+  machineId  String
+  type       String
+  number     String
+  expiryDate DateTime?
+  fileUrl    String?
+  createdAt  DateTime  @default(now())
+  machine    Machine   @relation(fields: [machineId], references: [id])
+
+  @@map("machine_documents")
+}
+
+model DailyProduction {
+  id                String   @id @default(cuid())
+  date              DateTime
+  machineId         String
+  operatorId        String
+  projectId         String
+  hoursWorked       Decimal  @db.Decimal(5, 2)
+  serviceDescription String
+  volumeMoved       Decimal? @db.Decimal(10, 2)
+  transportDistance Decimal? @db.Decimal(8, 2)
+  stoppageHours     Decimal  @default(0) @db.Decimal(5, 2)
+  stoppageReason    String?
+  createdAt         DateTime @default(now())
+  machine           Machine  @relation(fields: [machineId], references: [id])
+  operator          Employee @relation(fields: [operatorId], references: [id])
+  project           Project  @relation(fields: [projectId], references: [id])
+
+  @@map("daily_productions")
+}
+
+model Fueling {
+  id               String   @id @default(cuid())
+  machineId        String
+  date             DateTime
+  liters           Decimal  @db.Decimal(8, 2)
+  pricePerLiter    Decimal  @db.Decimal(6, 3)
+  totalCost        Decimal  @db.Decimal(10, 2)
+  currentHourMeter Decimal  @db.Decimal(10, 1)
+  operatorId       String
+  createdAt        DateTime @default(now())
+  machine          Machine  @relation(fields: [machineId], references: [id])
+  operator         User     @relation(fields: [operatorId], references: [id])
+
+  @@map("fuelings")
+}
+
+model FuelStock {
+  id            String   @id @default(cuid())
+  date          DateTime
+  type          FuelType
+  quantity      Decimal  @db.Decimal(10, 2)
+  pricePerLiter Decimal  @db.Decimal(6, 3)
+  createdAt     DateTime @default(now())
+
+  @@map("fuel_stock")
+}
+
+model MaintenanceOrder {
+  id                String            @id @default(cuid())
+  machineId         String
+  type              MaintenanceType
+  status            MaintenanceStatus @default(OPEN)
+  description       String
+  scheduledDate     DateTime
+  completedDate     DateTime?
+  cost              Decimal?          @db.Decimal(10, 2)
+  hourMeterAtService Decimal?         @db.Decimal(10, 1)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  machine           Machine           @relation(fields: [machineId], references: [id])
+  partUsages        PartUsage[]
+
+  @@map("maintenance_orders")
+}
+
+model MaintenancePlan {
+  id                   String   @id @default(cuid())
+  machineId            String
+  description          String
+  intervalHours        Decimal  @db.Decimal(8, 1)
+  lastServiceHourMeter Decimal? @db.Decimal(10, 1)
+  nextServiceHourMeter Decimal  @db.Decimal(10, 1)
+  createdAt            DateTime @default(now())
+  machine              Machine  @relation(fields: [machineId], references: [id])
+
+  @@map("maintenance_plans")
+}
+
+model Part {
+  id          String          @id @default(cuid())
+  name        String
+  code        String          @unique
+  quantity    Int             @default(0)
+  minQuantity Int             @default(0)
+  unitPrice   Decimal         @db.Decimal(10, 2)
+  location    String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  usages      PartUsage[]
+  movements   StockMovement[]
+
+  @@map("parts")
+}
+
+model PartUsage {
+  id                 String           @id @default(cuid())
+  partId             String
+  maintenanceOrderId String
+  quantity           Int
+  date               DateTime
+  part               Part             @relation(fields: [partId], references: [id])
+  maintenanceOrder   MaintenanceOrder @relation(fields: [maintenanceOrderId], references: [id])
+
+  @@map("part_usages")
+}
+
+model Employee {
+  id               String           @id @default(cuid())
+  name             String
+  cpf              String           @unique
+  role             EmployeeRole
+  phone            String?
+  email            String?
+  hireDate         DateTime
+  status           String           @default("ACTIVE")
+  companyId        String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  company          Company          @relation(fields: [companyId], references: [id])
+  trainings        Training[]
+  dailyProductions DailyProduction[]
+
+  @@map("employees")
+}
+
+model Training {
+  id          String    @id @default(cuid())
+  employeeId  String
+  name        String
+  date        DateTime
+  expiryDate  DateTime?
+  certificate String?
+  createdAt   DateTime  @default(now())
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+
+  @@map("trainings")
+}
+
+model FinancialEntry {
+  id          String          @id @default(cuid())
+  type        FinancialType
+  description String
+  value       Decimal         @db.Decimal(15, 2)
+  dueDate     DateTime
+  paidDate    DateTime?
+  status      FinancialStatus @default(PENDING)
+  projectId   String?
+  category    String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  project     Project?        @relation(fields: [projectId], references: [id])
+
+  @@map("financial_entries")
+}
+
+model StockMovement {
+  id        String            @id @default(cuid())
+  partId    String
+  type      StockMovementType
+  quantity  Int
+  date      DateTime
+  projectId String?
+  reason    String?
+  createdAt DateTime          @default(now())
+  part      Part              @relation(fields: [partId], references: [id])
+  project   Project?          @relation(fields: [projectId], references: [id])
+
+  @@map("stock_movements")
+}
+
+model StockRequisition {
+  id          String            @id @default(cuid())
+  projectId   String
+  status      RequisitionStatus @default(PENDING)
+  items       Json
+  requestDate DateTime          @default(now())
+  createdAt   DateTime          @default(now())
+  project     Project           @relation(fields: [projectId], references: [id])
+
+  @@map("stock_requisitions")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String
+  details   Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  type      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
