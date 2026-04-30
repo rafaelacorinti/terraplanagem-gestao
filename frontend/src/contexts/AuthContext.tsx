@@ -78,7 +78,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Try real API first, fallback to mock
+    // Mock login first (no backend needed)
+    if (email === 'admin@terra.com' && password === 'admin123') {
+      localStorage.setItem('token', 'mock-token-123')
+      localStorage.setItem('currentUser', JSON.stringify(MOCK_USER))
+      setUser(MOCK_USER)
+      return
+    }
+
+    // Try real API
     try {
       const { authService } = await import('../services/auth.service')
       const { token, user: apiUser } = await authService.login(email, password)
@@ -86,14 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('currentUser', JSON.stringify(apiUser))
       setUser(apiUser)
     } catch {
-      // Mock login
-      if (email === 'admin@terra.com' && password === 'admin123') {
-        localStorage.setItem('token', 'mock-token-123')
-        localStorage.setItem('currentUser', JSON.stringify(MOCK_USER))
-        setUser(MOCK_USER)
-      } else {
-        throw new Error('Email ou senha inválidos')
-      }
+      throw new Error('Email ou senha inválidos')
     }
   }
 
