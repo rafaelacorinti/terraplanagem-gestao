@@ -5,8 +5,8 @@ import { FiMail, FiLock, FiUser, FiPhone, FiBriefcase, FiFileText } from 'react-
 import { accessRequestStorage } from '../services/storage'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@terra.com')
-  const [password, setPassword] = useState('admin123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showRegister, setShowRegister] = useState(false)
@@ -283,10 +283,6 @@ export default function LoginPage() {
               Não tem acesso? Solicite aqui
             </button>
           </div>
-
-          <p className="text-center text-xs text-gray-400 mt-4">
-            Demo: admin@terra.com / admin123
-          </p>
         </div>
       </div>
     </div>
